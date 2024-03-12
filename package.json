@@ -1,0 +1,23 @@
+{
+  "name": "llm_lab_sdk_js",
+  "version": "1.0.0",
+  "description": "SDK for LLM LAB implementation in JS",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/intelligent-iterations/llm_lab_sdk_js.git"
+  },
+  "keywords": [
+    "ai",
+    "sdk"
+  ],
+  "author": "luciana-lara",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/intelligent-iterations/llm_lab_sdk_js/issues"
+  },
+  "homepage": "https://github.com/intelligent-iterations/llm_lab_sdk_js#readme"
+}
