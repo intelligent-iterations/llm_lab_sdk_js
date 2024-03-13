@@ -1,5 +1,4 @@
 import fetch from 'node-fetch';
-import EventSource from 'eventsource';
 
 export class LLMLabSDK {
     constructor(apiKey) {

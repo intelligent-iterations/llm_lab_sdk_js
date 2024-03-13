@@ -2,10 +2,7 @@
 
 Quickly integrate an Intelligent Iterations chat bot into your application
 
-## How to Use
-1. **Install Dependencies**: Ensure `node-fetch` and `eventsource` are added to your project.
-2. **Initialize SDK**: `const sdk = new LLMLabSDK('your_api_key');`
-3. **Use Cases**:
+## Features
    - **Chat Stream**: Use `sdk.startChatStream(params)` for streaming chats.
    - **Single Chat**: Use `sdk.chatWithAgentFuture(options)` for single chat responses.
 
@@ -17,7 +14,7 @@ Quickly integrate an Intelligent Iterations chat bot into your application
 - **Create an Agent:** Set up a new agent in your account and note its ID for SDK usage.
 
 ### Integration
-1. **Install Dependencies:** Ensure `node-fetch` and `eventsource` are in your project.
+1. **Install Dependencies:** Ensure `node-fetch` is added to your project.
 2. **SDK Setup:**
    ```javascript
    import { LLMLabSDK } from '../index.js';
