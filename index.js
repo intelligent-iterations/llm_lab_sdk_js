@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import EventSource from 'eventsource';
 
-class LLMLabSDK {
+export class LLMLabSDK {
     constructor(apiKey) {
         this.apiKey = apiKey;
         this.baseUrl = 'https://launch-api.com';
@@ -16,16 +16,16 @@ class LLMLabSDK {
      * @param {number|null} [temperature=null] - The creativity temperature for responses.
      * @returns {Promise<Object>} A promise that resolves to the chat response object.
      */
-    async chatWithAgent({ model, messages, sessionId = null, maxTokens = null, temperature = null }) {
+    async chatWithAgentFuture({ model, messages, sessionId = null, maxTokens = null, temperature = null }) {
         try {
             const body = {
                 model,
+                stream: false,
                 messages: messages.map(({ role, content }) => ({ role, content })),
                 ...(maxTokens != null && { maxTokens }),
                 ...(sessionId != null && { sessionId }),
                 ...(temperature != null && { temperature }),
             };
-
             const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
                 method: 'POST',
                 headers: {
@@ -36,8 +36,11 @@ class LLMLabSDK {
             });
 
             const data = await response.json();
-            const message = data.choices[0].message.content;
+            if (response.status != 201) { // response.ok is true if the status code is 200-299
+                throw new Error(`HTTP error! status: ${response.status}, message: ${data.message}`);
+            }
 
+            const message = data.choices[0].message.content;
 
             return { success: true, content: message };
         } catch (e) {
@@ -69,98 +72,92 @@ class LLMLabSDK {
     */
 
     async startChatStream({ sessionId, model, messages, maxTokens = null, temperature = null, onSuccess, onError, onComplete }) {
-        var body = {
+        const url = `${this.baseUrl}/v1/chat/completions`;
+        const headers = {
+            'Content-Type': 'application/json',
+            'apikey': this.apiKey,
+        };
+        const body = {
             "stream": true,
             "sessionId": sessionId,
             "model": model,
             "messages": messages.map(e => ({ 'role': e.role, 'content': e.content })),
+            ...(maxTokens != null && { maxTokens }),
+            ...(temperature != null && { temperature }),
         };
 
-        if (maxTokens != null) {
-            body['maxTokens'] = maxTokens;
-        }
-        if (temperature != null) {
-            body['temperature'] = temperature;
-        }
-
         try {
-            const response = await fetch(`${this.baseUrl}/startStreamSession`, {
+            const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': this.apiKey,
-                },
+                headers: headers,
                 body: JSON.stringify(body),
             });
 
-            const data = await response.json();
-            if (data.streamUrl) {
-                this.listenToStream(data.streamUrl, onSuccess, onError, onComplete);
-            } else {
-                console.error('Failed to start stream session.');
-                onError('Failed to start stream session.');
+            if (!response.body) {
+                throw new Error('Response does not contain a readable stream.');
             }
+
+            this.readStream(response.body, onSuccess, onError, onComplete);
         } catch (error) {
-            console.error('Error starting chat stream:', error);
-            onError(error);
+            onError(`Failed to start the stream: ${error}`);
         }
     }
+    readStream(stream, onSuccess, onError, onComplete) {
+        let buffer = '';
+        const decoder = new TextDecoder('utf-8'); // Use TextDecoder to decode from buffer to string
 
-    listenToStream(streamUrl, onSuccess, onError, onComplete) {
-        this.eventSource = new EventSource(streamUrl);
+        stream.on('data', (chunk) => {
+            // Decode chunk and append to buffer
+            buffer += decoder.decode(chunk, { stream: true });
 
-        this.eventSource.onmessage = (event) => {
-            try {
-                const line = event.data;
-                if (line.trim() === "" || !line.startsWith("data: ")) {
-                    return;
-                }
-                const jsonData = line.substring("data: ".length).trim();
-                if (jsonData.includes('statusCode')) {
-                    onError(jsonData);
-                    return;
-                }
-                if (jsonData.includes("undefined")) { // Marker for stream end
-                    onComplete();
-                    this.stopChatStream();
-                    return;
-                }
+            // Process complete lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in the buffer
 
-                const decoded = JSON.parse(jsonData);
-                const chatResponse = this.createChatResponse(decoded);
-                onSuccess(chatResponse);
-            } catch (error) {
-                console.error(`Error processing streamed data: ${error}`);
-                onError(error);
+            lines.forEach(line => {
+                if (line) { // Process only if the line is not empty
+                    this.processLine(line, onSuccess, onError, onComplete);
+                }
+            });
+        });
+
+        stream.on('end', () => {
+            // Process any remaining content in buffer as the last line
+            if (buffer) {
+                this.processLine(buffer, onSuccess, onError, onComplete);
             }
-        };
+            console.log('Stream ended');
+            onComplete();
+        });
 
-        this.eventSource.onerror = (error) => {
+        stream.on('error', (error) => {
             console.error('Stream encountered an error:', error);
-            onError(error);
-            this.stopChatStream();
-        };
+            onError(error.toString());
+        });
     }
+    processLine(line, onSuccess, onError, onComplete) {
+        if (!line || !line.includes('data: ')) return;
 
-    stopChatStream() {
-        if (this.eventSource) {
-            this.eventSource.close();
-            this.eventSource = null;
+        if (line.includes('undefined')) { // Replace 'streamEndMarker' with your actual marker
+            console.log('Detected end of stream marker');
+            onComplete();
+            return; // Important to return to avoid processing this line further
         }
-    }
 
-    createChatResponse(decoded) {
-        return {
-            response: decoded.response,
-            systemPrompt: decoded.systemPrompt
-        };
-    }
-
-    stopChatStream() {
-        if (this.eventSource) {
-            this.eventSource.close();
-            this.eventSource = null; // Clear the EventSource object to avoid memory leaks
+        try {
+            if (line.startsWith('data: ')) {
+                line = line.substring(6); // Remove "data: " to parse the JSON correctly
+            }
+            const data = JSON.parse(line);
+            onSuccess(data);
+        } catch (error) {
+            onError(`Error processing data: ${error}`);
         }
     }
 
 }
+
+
+
+
+

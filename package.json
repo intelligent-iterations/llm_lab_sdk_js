@@ -1,11 +1,10 @@
 {
   "name": "llm_lab_sdk_js",
   "version": "1.0.0",
+  "type": "module",
   "description": "SDK for LLM LAB implementation in JS",
   "main": "index.js",
-  "scripts": {
-    "test": "npm test"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/intelligent-iterations/llm_lab_sdk_js.git"
@@ -21,6 +20,7 @@
   },
   "homepage": "https://github.com/intelligent-iterations/llm_lab_sdk_js#readme",
   "dependencies": {
+    "eventsource": "^2.0.2",
     "node-fetch": "^3.3.2"
   }
 }
